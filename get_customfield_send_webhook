@@ -1,0 +1,80 @@
+import requests
+import json
+from datetime import datetime,timedelta
+
+# Setze die URL des API-Endpunkts
+api_url = 'http://XXX.XXX.XXXX.XXXX:8810/api/documents/'
+
+# Füge den spezifischen Endpunkt hinzu, von dem du Daten abrufen möchtest
+endpoint = 'documents/'
+
+username = 'myusername'
+password = 'mypassword'
+
+# Heutiges Datum
+today_date = datetime.now().date()
+
+# Datum in zwei Wochen
+two_weeks_later = today_date + timedelta(weeks=2)
+
+# Formatieren Sie die Datumsobjekte zu Strings
+today_date_str = today_date.strftime("%Y-%m-%d")
+two_weeks_later_str = (today_date + timedelta(weeks=2)).strftime("%Y-%m-%d")
+
+# Kombinieren Sie die beiden Strings
+combined_dates = f"Heutiges Datum: {today_date_str}, Datum in zwei Wochen: {two_weeks_later_str}"
+
+print(combined_dates)
+
+# Führen Sie die Anfrage an die API durch und authentifizieren Sie sich mit Benutzername und Passwort
+response = requests.get(api_url, auth=(username, password))
+
+# Benutzerdefiniertes Feld und Wert, nach dem gefiltert werden soll
+#custom_field_value = "2024-05-12"
+
+# Überprüfen Sie, ob die Anfrage erfolgreich war
+if response.status_code == 200:
+    # Extrahieren Sie die Dokumente aus der Antwort
+    data = response.json()
+    results = data.get('results', [])
+    
+    # Filtern Sie die Dokumente nach dem Erstellungsdatum und dem benutzerdefinierten Feld
+    filtered_documents = [doc for doc in results if any(cf.get('value') == today_date_str for cf in doc.get('custom_fields', []))]
+
+    # Extrahieren Sie die Titel der Dokumente
+    document_titles = [document['title'] for document in filtered_documents]
+    
+    # Ausgabe der Dokumententitel
+    print("Dokumententitel Feld 'value': '{}'".format(today_date))
+    for title in document_titles:
+        print(title)
+else:
+    print("Fehler bei der Anfrage an die Paperless-API:", response.status_code)
+
+# URL deines Microsoft Teams-Webhooks
+teams_webhook_url = "https://webhook.office.com/webhookb2"
+
+results_to_send = {
+    "combined_dates": combined_dates,
+    "document_titles": document_titles
+}
+
+# Strukturiere die Nachricht gemäß dem von Microsoft Teams erwarteten Format
+teams_message = {
+    "text": "Neue Dokumente gefunden!",
+    "sections": [
+        {
+            "activityTitle": "Titel der Dokumente",
+            "activitySubtitle": "\n".join(results_to_send["document_titles"])
+        }
+    ]
+}
+
+# Sende die formatierte Nachricht an den Microsoft Teams-Webhook
+response = requests.post(teams_webhook_url, json=teams_message)
+
+# Überprüfe den Status der Anfrage
+if response.status_code == 200:
+    print("Nachricht erfolgreich an Microsoft Teams gesendet!")
+else:
+    print("Fehler beim Senden der Nachricht an Microsoft Teams:", response.status_code)
